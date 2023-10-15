@@ -26,17 +26,17 @@ def update(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         return {'status' : 'success', 'message' : 'Onclick action received'} # returns achknowledgement from back end BACK TO front end that the click was received  
     elif action == 'gu': #get update
         player = find_player(payload["id"]) #finds player using id : <id>
-        histpos = player.what_i_know  # gets the position in the history list where the player last knew about updates
+        remaining_history = player.what_i_know # gets the position in the history list where the player last knew about updates
         player.what_i_know = len(history) # updates what player knows to the curr length of history list
 
-        # iterates over the history from the last known position [histpos] TO the curr END [len(history)], creating a list of updates with player attributes
+        # iterates over the history from the last known position [remaining_history] TO the curr END [len(history)], creating a list of updates with player attributes
         updates: List[Tuple[str, int, int]] = []
-        for i in range(histpos, len(history)):
-          updated_player = history[i]
-          updates.append( (updated_player.id, updated_player.x, updated_player.y))
-        print({'message': 'updating backend history', 'updates' : updates})
+        for i in range(remaining_history, len(history)):
+          player = history[i]
+          updates.append( (player.id, player.x, player.y))
+        print({'message' : 'updating backend history', 'updates' : updates})
         return {"updates": updates}
-    print(f'update was called with {payload}')
+    # print(f'update was called with {payload}')
     ## if user is sending x and y, update 
     return {
         'message': 'thank you',
