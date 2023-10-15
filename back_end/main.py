@@ -7,13 +7,14 @@ from typing import Dict, List, Tuple
 class Player():
     # constructor (init), self (this), none (return none)
     def __init__(self) -> None:
-        self.id = id
-        self.y = 0
-        self.y = 0
-        self.what_i_know =0;
+        self.id : str = "" #should this be := id or ""
+        self.x : int = 0
+        self.y : int = 0
+        self.what_i_know = 0
 ## dictionary of players. if make_ajax_page searches through dict and does not find relevant id, it makes a new player. else, it returns the player: yes! it is in the list!
 players: Dict[str, Player] = {}
 history: List[Player] = []
+# updates: List[Tuple[str, int, int]] = [] 
 
 def update(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     action = payload["action"]
@@ -25,13 +26,15 @@ def update(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         return {'status' : 'success', 'message' : 'Onclick action received'} # returns achknowledgement from back end BACK TO front end that the click was received  
     elif action == 'gu': #get update
         player = find_player(payload["id"]) #finds player using id : <id>
-        histpos = history[player.what_i_know:]
-        player.what_i_know = len(history)
+        histpos = player.what_i_know  # gets the position in the history list where the player last knew about updates
+        player.what_i_know = len(history) # updates what player knows to the curr length of history list
 
+        # iterates over the history from the last known position [histpos] TO the curr END [len(history)], creating a list of updates with player attributes
         updates: List[Tuple[str, int, int]] = []
-        for i in range(len(remaining_history)):
-          player = remaining_history[i]
-          updates.append( (player.id, player.x, player.y))
+        for i in range(histpos, len(history)):
+          updated_player = history[i]
+          updates.append( (updated_player.id, updated_player.x, updated_player.y))
+        print({'message': 'updating backend history', 'updates' : updates})
         return {"updates": updates}
     print(f'update was called with {payload}')
     ## if user is sending x and y, update 

@@ -2,7 +2,8 @@
 
 class Sprite 
 {
-	x: number; // number would be analogous to integer int type in Java
+	id: string; // id attribute added to handle updates from the backend (for each object with unique id y, we update the x's and y's accordingly)
+	x: number; // number ~= int type in Java
 	y: number;
 	speed: number;
 	image: HTMLImageElement; // HTMLImageElement is the image type
@@ -11,8 +12,9 @@ class Sprite
 	update: () => void; 
 	onclick: (x: number, y: number) => void; // method onclick has parameters x and y (numbers) and is of type void
 
-	constructor(x: number, y: number, image_url: string, update_method: () => void, onclick_method: (x: number, y: number) => void) // Type annotations 'varName':'type' (optional, but useful)
+	constructor(id: string, x: number, y: number, image_url: string, update_method: () => void, onclick_method: (x: number, y: number) => void) // Type annotations 'varName':'type' (optional, but useful)
 	{
+		this.id = id; // read line 7 ^
 		this.x = x;
 		this.y = y;
         this.speed = 7;
@@ -61,20 +63,23 @@ class Sprite
 }
 
 
-
-
+// random_id method moved above Model so that it is recognized by model and sprites can be instantiated properly.
+const random_id = (len:number) => {
+    let p = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+    return [...Array(len)].reduce(a => a + p[Math.floor(Math.random() * p.length)], '');
+}
 
 
 class Model 
 {
 	sprites: Sprite[]; // sprites is of type Sprite array
-	turtle: Sprite; // turtle is of type Sprite
+	robot: Sprite; // turtle is of type Sprite. you are the turtle -> you are the blue_robot, everyone else is a green robot
 	constructor() 
-	{
+	{ // pass in a random_id of length 12 when creating a new sprite!!!
 		this.sprites = [];
-		this.sprites.push(new Sprite(200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
-		this.turtle = new Sprite(50, 50, "turtle.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination);
-		this.sprites.push(this.turtle);
+		this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
+		this.robot = new Sprite(random_id(12), 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination);
+		this.sprites.push(this.robot);
 	}
 
 	update() {
@@ -86,7 +91,7 @@ class Model
 	onclick(x : number, y : number) {
 
 		/*
-		//  from frontend
+		//  from frontend, not sure difference between Model.onclick & controller.onClick
 		let payload = {
 			mesage: 'howdi'
 		}
@@ -101,7 +106,7 @@ class Model
 	}
 
 	move(dx : number, dy : number) {
-		this.turtle.move(dx, dy);
+		this.robot.move(dx, dy);
 	}
 }
 
@@ -112,13 +117,13 @@ class View
 {
 	model: Model;
 	canvas: HTMLCanvasElement;
-	turtle: HTMLImageElement;
+	robot: HTMLImageElement;
 	constructor(model: Model) 
 	{
 		this.model = model;
 		this.canvas = document.getElementById("myCanvas") as HTMLCanvasElement; // explicitly say that you are assigning it as type HTMLCanvasElement
-		this.turtle = new Image();
-		this.turtle.src = "turtle.png";
+		this.robot = new Image();
+		this.robot.src = "blue_robot.png";
 	}
 
 	update() 
@@ -168,7 +173,8 @@ class Controller
 			y : y,
 		}; // this is talking to the BACKEND (main.py.Update method), passing the payload, including action : click, to update the new x and y of the object from the backend
 
-		httpPost('ajax.html', payload, this.onAcknowledgeClick);
+		httpPost('ajax.html', payload, this.onAcknowledgeClick); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
+		// BACKEND RESPONDS (sends back "status" : "success" [on 'click' request from frontend (in the form of a payload)] || "updates" : updates [on 'gu request from frontend (in the form of a payload)]) and frontend onAcknowledgeClick is CALLED 
 	}
 
 	keyDown(event: KeyboardEvent) 
@@ -191,7 +197,7 @@ class Controller
 	{
 		let dx = 0;
 		let dy = 0;
-        let speed = this.model.turtle.speed;
+        let speed = this.model.robot.speed;
 		if(this.key_right) dx += speed;
 		if(this.key_left) dx -= speed;
 		if(this.key_up) dy -= speed;
@@ -200,9 +206,58 @@ class Controller
 			this.model.move(dx, dy);
 	}
 
-	onAcknowledgeClick(ob: any) 
+	onAcknowledgeClick(ob: any) // called when the server responds to the update request (ln 173 httpPost) 
 	{
 		console.log(`Response to move: ${JSON.stringify(ob)}`); // console log response from backend
+		// add logic here to see if returned object from backend contains ('status' : 'success') -> TO NOTHING IF ITS A CLICK
+		// elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
+		if (ob.status === 'success') {}
+		else if (ob.updates)
+		{
+			const updates = ob.updates;	
+			this.process_updates(updates);
+		}
+		else
+		{
+			console.warn('Unexpected response from backend:', ob);
+		}
+
+	} // logs response to console
+
+	process_updates(updates: any[])
+	{
+		for (const update of updates)
+		{
+			const playerID = update[0];
+			const playerX = update[1];
+			const playerY = update[2];
+
+			this.updatePlayerPosition(playerID, playerX, playerY)
+		} // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
+	}
+
+	updatePlayerPosition(playerID: string, playerX: number, playerY: number)
+	{
+		//const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
+		let player: Sprite | null = null; // initialize a player of type Sprite or null
+
+		for (let i = 0; i < this.model.sprites.length; i++)
+		{
+			if (this.model.sprites[i].id === playerID) // player is found
+			{
+				player = this.model.sprites[i];
+				break; // exit loop once player is found
+			}
+		}
+		if (player === null) // if player is not found, create a new sprite for them
+		{
+			player = new Sprite(playerID, playerX, playerY, "green_robot.png", () => {}, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+			this.model.sprites.push(player); // add new player to the sprites array
+		}
+
+		// updates player's position
+		player.x = playerX;
+		player.y = playerY;
 	}
 }
 
@@ -216,6 +271,8 @@ class Game
 	view: View;
 	controller: Controller;
 
+	last_updates_request_time: number = 0;
+
 	constructor() 
 	{
 		this.model = new Model();
@@ -225,9 +282,27 @@ class Game
 
 	onTimer() 
 	{
+
+		// checks if one second has passed since the last update
+		const time = Date.now();
+		if (time - this.last_updates_request_time >= 1000) {
+			this.last_updates_request_time = time; // sets the last update request time to curr time
+			this.request_updates(); // sends a request for updates
+		}
+
+		// other game logic
 		this.controller.update();
 		this.model.update();
 		this.view.update();
+	}
+
+	request_updates() {
+		const payload = {
+			id: g_id,
+			action: 'gu' // get updates
+		};
+	
+		httpPost('ajax.html', payload, this.controller.process_updates);
 	}
 }
 
@@ -239,10 +314,6 @@ interface HttpPostCallback {
 	(x:any): any;
 }
 
-const random_id = (len:number) => {
-    let p = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    return [...Array(len)].reduce(a => a + p[Math.floor(Math.random() * p.length)], '');
-}
 
 const g_origin = new URL(window.location.href).origin;
 const g_id = random_id(12);
@@ -289,4 +360,3 @@ const httpPost = (page_name: string, payload: any, callback: HttpPostCallback) =
 	request.setRequestHeader('Content-Type', 'application/json');
 	request.send(JSON.stringify(payload));
 }
-
