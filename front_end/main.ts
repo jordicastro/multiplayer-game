@@ -66,9 +66,13 @@ class Sprite
 // random_id method moved above Model so that it is recognized by model and sprites can be instantiated properly.
 const random_id = (len:number) => {
     let p = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    return [...Array(len)].reduce(a => a + p[Math.floor(Math.random() * p.length)], '');
+    let value = [...Array(len)].reduce(a => a + p[Math.floor(Math.random() * p.length)], '');
+	console.log(`random value = ${value}`);
+	console.trace();
+	return value;
 }
 
+const g_id = random_id(12);
 
 class Model 
 {
@@ -77,8 +81,9 @@ class Model
 	constructor() 
 	{ // pass in a random_id of length 12 when creating a new sprite!!!
 		this.sprites = [];
-		this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
-		this.robot = new Sprite(random_id(12), 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination);
+		//this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
+		this.robot = new Sprite(g_id, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
+		console.log(`BLUE ROBOT ID: ${this.robot.id}`);
 		this.sprites.push(this.robot);
 	}
 
@@ -150,6 +155,7 @@ class Controller
 	key_left: boolean = false;
 	key_up: boolean = false;
 	key_down: boolean = false;
+	
 	constructor(model: Model, view: View) 
 	{
 		this.model = model;
@@ -206,16 +212,22 @@ class Controller
 			this.model.move(dx, dy);
 	}
 
+	
+
 	onAcknowledgeClick(ob: any) // called when the server responds to the update request (ln 173 httpPost) 
 	{
 		console.log(`Response to move: ${JSON.stringify(ob)}`); // console log response from backend
 		// add logic here to see if returned object from backend contains ('status' : 'success') -> TO NOTHING IF ITS A CLICK
 		// elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
-		if (ob.status === 'success') {}
+		if (ob.status === 'success') 
+		{
+			console.log("click action processed successfully!"); // from frontend to back endback to frontend
+		}
 		else if (ob.updates)
 		{
-			const updates = ob.updates;	
-			this.process_updates(updates);
+			console.log('update called');
+			//const updates = ob.updates;	
+			this.process_updates(ob.updates);
 		}
 		else
 		{
@@ -224,9 +236,11 @@ class Controller
 
 	} // logs response to console
 
-	process_updates(updates: any[])
+	process_updates(ob: any)
 	{
-		for (const update of updates)
+		let updates = ob;
+		console.log(updates);
+		for (const update of updates) // list syntax. change to json
 		{
 			const playerID = update[0];
 			const playerX = update[1];
@@ -236,6 +250,7 @@ class Controller
 		} // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
 	}
 
+
 	updatePlayerPosition(playerID: string, playerX: number, playerY: number)
 	{
 		//const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
@@ -243,21 +258,25 @@ class Controller
 
 		for (let i = 0; i < this.model.sprites.length; i++)
 		{
+			console.log(`looking for  ${playerID} , this.model.sprites[i].id = ${this.model.sprites[i].id}`);
 			if (this.model.sprites[i].id === playerID) // player is found
 			{
+
 				player = this.model.sprites[i];
+				console.log(`found player = ${player}`);
 				break; // exit loop once player is found
 			}
 		}
 		if (player === null) // if player is not found, create a new sprite for them
 		{
-			player = new Sprite(playerID, playerX, playerY, "green_robot.png", () => {}, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+			console.log(`not found player player = ${player}`);
+			player = new Sprite(playerID, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+			console.log(`player assigned = ${player}`);
 			this.model.sprites.push(player); // add new player to the sprites array
-		}
+		} // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
 
-		// updates player's position
-		player.x = playerX;
-		player.y = playerY;
+		// updates player's position if it is found in the for loop
+		player.set_destination(playerX, playerY);
 	}
 }
 
@@ -285,7 +304,8 @@ class Game
 
 		// checks if one second has passed since the last update
 		const time = Date.now();
-		if (time - this.last_updates_request_time >= 1000) {
+		if (time - this.last_updates_request_time >= 1000) 
+		{
 			this.last_updates_request_time = time; // sets the last update request time to curr time
 			this.request_updates(); // sends a request for updates
 		}
@@ -302,11 +322,11 @@ class Game
 			action: 'gu' // get updates
 		};
 	
-		httpPost('ajax.html', payload, this.controller.process_updates);
+		httpPost('ajax.html', payload, (ob) => this.controller.onAcknowledgeClick(ob));                     
 	}
 }
 
-
+///////////////////////////////////////////////////////// start
 let game = new Game();
 let timer = setInterval(() => { game.onTimer(); }, 40);
 
@@ -316,7 +336,7 @@ interface HttpPostCallback {
 
 
 const g_origin = new URL(window.location.href).origin;
-const g_id = random_id(12);
+
 
 // Payload is a marshaled (but not JSON-stringified) object
 // A JSON-parsed response object will be passed to the callback

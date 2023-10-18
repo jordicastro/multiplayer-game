@@ -1,4 +1,3 @@
-"use strict";
 // ** FRONT END **
 var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
@@ -51,13 +50,18 @@ var Sprite = /** @class */ (function () {
 // random_id method moved above Model so that it is recognized by model and sprites can be instantiated properly.
 var random_id = function (len) {
     var p = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
-    return __spreadArray([], Array(len), true).reduce(function (a) { return a + p[Math.floor(Math.random() * p.length)]; }, '');
+    var value = __spreadArray([], Array(len), true).reduce(function (a) { return a + p[Math.floor(Math.random() * p.length)]; }, '');
+    console.log("random value = ".concat(value));
+    console.trace();
+    return value;
 };
+var g_id = random_id(12);
 var Model = /** @class */ (function () {
     function Model() {
         this.sprites = [];
-        this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
-        this.robot = new Sprite(random_id(12), 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination);
+        //this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
+        this.robot = new Sprite(g_id, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
+        console.log("BLUE ROBOT ID: ".concat(this.robot.id));
         this.sprites.push(this.robot);
     }
     Model.prototype.update = function () {
@@ -169,16 +173,21 @@ var Controller = /** @class */ (function () {
         console.log("Response to move: ".concat(JSON.stringify(ob))); // console log response from backend
         // add logic here to see if returned object from backend contains ('status' : 'success') -> TO NOTHING IF ITS A CLICK
         // elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
-        if (ob.status === 'success') { }
+        if (ob.status === 'success') {
+            console.log("click action processed successfully!"); // from frontend to back endback to frontend
+        }
         else if (ob.updates) {
-            var updates = ob.updates;
-            this.process_updates(updates);
+            console.log('update called');
+            //const updates = ob.updates;	
+            this.process_updates(ob.updates);
         }
         else {
             console.warn('Unexpected response from backend:', ob);
         }
     }; // logs response to console
-    Controller.prototype.process_updates = function (updates) {
+    Controller.prototype.process_updates = function (ob) {
+        var updates = ob;
+        console.log(updates);
         for (var _i = 0, updates_1 = updates; _i < updates_1.length; _i++) {
             var update = updates_1[_i];
             var playerID = update[0];
@@ -191,20 +200,23 @@ var Controller = /** @class */ (function () {
         //const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
         var player = null; // initialize a player of type Sprite or null
         for (var i = 0; i < this.model.sprites.length; i++) {
+            console.log("looking for  ".concat(playerID, " , this.model.sprites[i].id = ").concat(this.model.sprites[i].id));
             if (this.model.sprites[i].id === playerID) // player is found
              {
                 player = this.model.sprites[i];
+                console.log("found player = ".concat(player));
                 break; // exit loop once player is found
             }
         }
         if (player === null) // if player is not found, create a new sprite for them
          {
-            player = new Sprite(playerID, playerX, playerY, "green_robot.png", function () { }, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+            console.log("not found player player = ".concat(player));
+            player = new Sprite(playerID, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+            console.log("player assigned = ".concat(player));
             this.model.sprites.push(player); // add new player to the sprites array
         }
         // updates player's position
-        player.x = playerX;
-        player.y = playerY;
+        player.set_destination(playerX, playerY);
     };
     return Controller;
 }());
@@ -228,18 +240,19 @@ var Game = /** @class */ (function () {
         this.view.update();
     };
     Game.prototype.request_updates = function () {
+        var _this = this;
         var payload = {
             id: g_id,
             action: 'gu' // get updates
         };
-        httpPost('ajax.html', payload, this.controller.process_updates);
+        httpPost('ajax.html', payload, function (ob) { return _this.controller.onAcknowledgeClick(ob); });
     };
     return Game;
 }());
+///////////////////////////////////////////////////////// start
 var game = new Game();
 var timer = setInterval(function () { game.onTimer(); }, 40);
 var g_origin = new URL(window.location.href).origin;
-var g_id = random_id(12);
 // Payload is a marshaled (but not JSON-stringified) object
 // A JSON-parsed response object will be passed to the callback
 var httpPost = function (page_name, payload, callback) {
