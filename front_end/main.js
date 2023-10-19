@@ -214,8 +214,8 @@ var Controller = /** @class */ (function () {
             player = new Sprite(playerID, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
             console.log("player assigned = ".concat(player));
             this.model.sprites.push(player); // add new player to the sprites array
-        }
-        // updates player's position
+        } // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
+        // updates player's position if it is found in the for loop
         player.set_destination(playerX, playerY);
     };
     return Controller;
