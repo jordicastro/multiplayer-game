@@ -3,6 +3,7 @@
 class Sprite 
 {
 	id: string; // id attribute added to handle updates from the backend (for each object with unique id y, we update the x's and y's accordingly)
+	name: string;
 	x: number; // number ~= int type in Java
 	y: number;
 	speed: number;
@@ -10,11 +11,12 @@ class Sprite
 	dest_x: number = 0;
 	dest_y: number = 0;
 	update: () => void; 
-	onclick: (x: number, y: number) => void; // method onclick has parameters x and y (numbers) and is of type void
+	onclick: (x: number, y: number, name: string) => void; // method onclick has parameters x and y (numbers) and is of type void
 
-	constructor(id: string, x: number, y: number, image_url: string, update_method: () => void, onclick_method: (x: number, y: number) => void) // Type annotations 'varName':'type' (optional, but useful)
+	constructor(id: string, name: string, x: number, y: number,  image_url: string, update_method: () => void, onclick_method: (x: number, y: number, name: string) => void) // Type annotations 'varName':'type' (optional, but useful)
 	{
 		this.id = id; // read line 7 ^
+		this.name = name;
 		this.x = x;
 		this.y = y;
         this.speed = 7;
@@ -22,6 +24,8 @@ class Sprite
 		this.image.src = image_url;
 		this.update = update_method;
 		this.onclick = onclick_method;
+		this.dest_x = 250;
+		this.dest_y = 250;
 	}
 
 	set_destination(x: number, y: number) 
@@ -82,7 +86,7 @@ class Model
 	{ // pass in a random_id of length 12 when creating a new sprite!!!
 		this.sprites = [];
 		//this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
-		this.robot = new Sprite(g_id, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
+		this.robot = new Sprite(g_id, name_, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
 		console.log(`BLUE ROBOT ID: ${this.robot.id}`);
 		this.sprites.push(this.robot);
 	}
@@ -106,7 +110,7 @@ class Model
 
 		*/
 		for (const sprite of this.sprites) {
-			sprite.onclick(x, y);
+			sprite.onclick(x, y, name_);
 		}
 	}
 
@@ -137,6 +141,8 @@ class View
 		ctx.clearRect(0, 0, 1000, 500);
 		for (const sprite of this.model.sprites) {
 			ctx.drawImage(sprite.image, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height);
+			ctx.font = "20px Verdana";
+			ctx.fillText(sprite.name, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height - 10);
 		}
 	}
 }
@@ -177,6 +183,7 @@ class Controller
 			action : 'click',
 			x : x,
 			y : y,
+			name : name_
 		}; // this is talking to the BACKEND (main.py.Update method), passing the payload, including action : click, to update the new x and y of the object from the backend
 
 		httpPost('ajax.html', payload, this.onAcknowledgeClick); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
@@ -246,19 +253,19 @@ class Controller
 			const playerX = update[1];
 			const playerY = update[2];
 
-			this.updatePlayerPosition(playerID, playerX, playerY)
+			this.updatePlayerPosition(playerID, playerX, playerY, name_)
 		} // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
 	}
 
 
-	updatePlayerPosition(playerID: string, playerX: number, playerY: number)
+	updatePlayerPosition(playerID: string, playerX: number, playerY: number, playerName: string)
 	{
 		//const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
 		let player: Sprite | null = null; // initialize a player of type Sprite or null
 
 		for (let i = 0; i < this.model.sprites.length; i++)
 		{
-			console.log(`looking for  ${playerID} , this.model.sprites[i].id = ${this.model.sprites[i].id}`);
+			console.log(`looking for  ${playerID} with name ${playerName}, this.model.sprites[i].id = ${this.model.sprites[i].id}`);
 			if (this.model.sprites[i].id === playerID) // player is found
 			{
 
@@ -270,7 +277,7 @@ class Controller
 		if (player === null) // if player is not found, create a new sprite for them
 		{
 			console.log(`not found player player = ${player}`);
-			player = new Sprite(playerID, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+			player = new Sprite(playerID, "no_name", playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
 			console.log(`player assigned = ${player}`);
 			this.model.sprites.push(player); // add new player to the sprites array
 		} // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
@@ -327,8 +334,11 @@ class Game
 }
 
 ///////////////////////////////////////////////////////// start
-let game = new Game();
-let timer = setInterval(() => { game.onTimer(); }, 40);
+var name_ : string = "";
+back_story();
+// let game = new Game();
+// let timer = setInterval(() => { game.onTimer(); }, 40);
+
 
 interface HttpPostCallback {
 	(x:any): any;
@@ -379,4 +389,58 @@ const httpPost = (page_name: string, payload: any, callback: HttpPostCallback) =
 	request.open('post', `${g_origin}/${page_name}`, true);
 	request.setRequestHeader('Content-Type', 'application/json');
 	request.send(JSON.stringify(payload));
+}
+
+function back_story(): void {
+	let s: string[] = [];
+	s.push(`<canvas id="myCanvas" width="1000" height="500" style="border:1px solid #ff0000;">`);
+	s.push(`</canvas>`);
+
+	s.push('<div id="nameInput">');
+		s.push('<label for="userName">Enter your name: </label>');
+		s.push('<input type="text" id="userName" placeholder="Your Name">');
+		s.push('<button id="startGame">Start Game</button>');
+	s.push('</div>');
+
+	const content = document.getElementById('content') as HTMLCanvasElement;
+	content.innerHTML = s.join('');
+
+
+
+	const startButton = document.getElementById('startGame') as HTMLButtonElement;
+    // const nameInput = document.getElementById('userName') as HTMLInputElement;
+    // const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
+    // const backstory = document.getElementById('backstory') as HTMLDivElement;
+
+	startButton.addEventListener('click', () => {
+		const nameInput = document.getElementById('userName') as HTMLInputElement;
+		//const story = document.getElementById('backStory');
+		name_ = nameInput.value;
+		console.log(`Players name: ${name_}`);
+
+		if (name_) {
+			// turn off button, storyline
+			startButton.style.display = 'none'; // removes the button
+			nameInput.style.display = 'none'; // removes the text box
+
+			// start game
+			let game = new Game();
+			let timer = setInterval(() => { game.onTimer(); }, 40);
+
+		}
+		else
+		{
+			alert('please enter your name');
+		}
+
+
+	});
+
+	let canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
+	let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+	ctx.font = "25px Courier";
+	ctx.fillText("Banana Quest!\n", 10, 50);
+	ctx.font = "15px Courier";
+	ctx.fillText("here is the backstory", 10, 50);
+
 }

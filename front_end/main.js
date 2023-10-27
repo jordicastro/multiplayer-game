@@ -1,3 +1,4 @@
+"use strict";
 // ** FRONT END **
 var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
@@ -9,10 +10,11 @@ var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
     return to.concat(ar || Array.prototype.slice.call(from));
 };
 var Sprite = /** @class */ (function () {
-    function Sprite(id, x, y, image_url, update_method, onclick_method) {
+    function Sprite(id, name, x, y, image_url, update_method, onclick_method) {
         this.dest_x = 0;
         this.dest_y = 0;
         this.id = id; // read line 7 ^
+        this.name = name;
         this.x = x;
         this.y = y;
         this.speed = 7;
@@ -20,6 +22,8 @@ var Sprite = /** @class */ (function () {
         this.image.src = image_url;
         this.update = update_method;
         this.onclick = onclick_method;
+        this.dest_x = 250;
+        this.dest_y = 250;
     }
     Sprite.prototype.set_destination = function (x, y) {
         this.dest_x = x;
@@ -60,7 +64,7 @@ var Model = /** @class */ (function () {
     function Model() {
         this.sprites = [];
         //this.sprites.push(new Sprite(random_id(12), 200, 100, "lettuce.png", Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
-        this.robot = new Sprite(g_id, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
+        this.robot = new Sprite(g_id, name_, 50, 50, "blue_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.set_destination); // overide Sprite.prototype.go_toward_destination
         console.log("BLUE ROBOT ID: ".concat(this.robot.id));
         this.sprites.push(this.robot);
     }
@@ -83,7 +87,7 @@ var Model = /** @class */ (function () {
         */
         for (var _i = 0, _a = this.sprites; _i < _a.length; _i++) {
             var sprite = _a[_i];
-            sprite.onclick(x, y);
+            sprite.onclick(x, y, name_);
         }
     };
     Model.prototype.move = function (dx, dy) {
@@ -104,6 +108,8 @@ var View = /** @class */ (function () {
         for (var _i = 0, _a = this.model.sprites; _i < _a.length; _i++) {
             var sprite = _a[_i];
             ctx.drawImage(sprite.image, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height);
+            ctx.font = "20px Verdana";
+            ctx.fillText(sprite.name, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height - 10);
         }
     };
     return View;
@@ -130,6 +136,7 @@ var Controller = /** @class */ (function () {
             action: 'click',
             x: x,
             y: y,
+            name: name_
         }; // this is talking to the BACKEND (main.py.Update method), passing the payload, including action : click, to update the new x and y of the object from the backend
         httpPost('ajax.html', payload, this.onAcknowledgeClick); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
         // BACKEND RESPONDS (sends back "status" : "success" [on 'click' request from frontend (in the form of a payload)] || "updates" : updates [on 'gu request from frontend (in the form of a payload)]) and frontend onAcknowledgeClick is CALLED 
@@ -193,14 +200,14 @@ var Controller = /** @class */ (function () {
             var playerID = update[0];
             var playerX = update[1];
             var playerY = update[2];
-            this.updatePlayerPosition(playerID, playerX, playerY);
+            this.updatePlayerPosition(playerID, playerX, playerY, name_);
         } // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
     };
-    Controller.prototype.updatePlayerPosition = function (playerID, playerX, playerY) {
+    Controller.prototype.updatePlayerPosition = function (playerID, playerX, playerY, playerName) {
         //const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
         var player = null; // initialize a player of type Sprite or null
         for (var i = 0; i < this.model.sprites.length; i++) {
-            console.log("looking for  ".concat(playerID, " , this.model.sprites[i].id = ").concat(this.model.sprites[i].id));
+            console.log("looking for  ".concat(playerID, " with name ").concat(playerName, ", this.model.sprites[i].id = ").concat(this.model.sprites[i].id));
             if (this.model.sprites[i].id === playerID) // player is found
              {
                 player = this.model.sprites[i];
@@ -211,7 +218,7 @@ var Controller = /** @class */ (function () {
         if (player === null) // if player is not found, create a new sprite for them
          {
             console.log("not found player player = ".concat(player));
-            player = new Sprite(playerID, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+            player = new Sprite(playerID, "no_name", playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
             console.log("player assigned = ".concat(player));
             this.model.sprites.push(player); // add new player to the sprites array
         } // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
@@ -250,8 +257,8 @@ var Game = /** @class */ (function () {
     return Game;
 }());
 ///////////////////////////////////////////////////////// start
-var game = new Game();
-var timer = setInterval(function () { game.onTimer(); }, 40);
+var name_ = "";
+back_story();
 var g_origin = new URL(window.location.href).origin;
 // Payload is a marshaled (but not JSON-stringified) object
 // A JSON-parsed response object will be passed to the callback
@@ -299,3 +306,42 @@ var httpPost = function (page_name, payload, callback) {
     request.setRequestHeader('Content-Type', 'application/json');
     request.send(JSON.stringify(payload));
 };
+function back_story() {
+    var s = [];
+    s.push("<canvas id=\"myCanvas\" width=\"1000\" height=\"500\" style=\"border:1px solid #ff0000;\">");
+    s.push("</canvas>");
+    s.push('<div id="nameInput">');
+    s.push('<label for="userName">Enter your name: </label>');
+    s.push('<input type="text" id="userName" placeholder="Your Name">');
+    s.push('<button id="startGame">Start Game</button>');
+    s.push('</div>');
+    var content = document.getElementById('content');
+    content.innerHTML = s.join('');
+    var startButton = document.getElementById('startGame');
+    // const nameInput = document.getElementById('userName') as HTMLInputElement;
+    // const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
+    // const backstory = document.getElementById('backstory') as HTMLDivElement;
+    startButton.addEventListener('click', function () {
+        var nameInput = document.getElementById('userName');
+        //const story = document.getElementById('backStory');
+        name_ = nameInput.value;
+        console.log("Players name: ".concat(name_));
+        if (name_) {
+            // turn off button, storyline
+            startButton.style.display = 'none'; // removes the button
+            nameInput.style.display = 'none'; // removes the text box
+            // start game
+            var game_1 = new Game();
+            var timer = setInterval(function () { game_1.onTimer(); }, 40);
+        }
+        else {
+            alert('please enter your name');
+        }
+    });
+    var canvas = document.getElementById('myCanvas');
+    var ctx = canvas.getContext("2d");
+    ctx.font = "25px Courier";
+    ctx.fillText("Banana Quest!\n", 10, 50);
+    ctx.font = "15px Courier";
+    ctx.fillText("here is the backstory", 10, 50);
+}

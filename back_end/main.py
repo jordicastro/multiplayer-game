@@ -7,7 +7,8 @@ from typing import Dict, List, Tuple
 class Player():
     # constructor (init), self (this), none (return none)
     def __init__(self) -> None:
-        self.id : str = "" #should this be := id or ""
+        self.id : str = ""
+        self.name : str = ""
         self.x : int = 0
         self.y : int = 0
         self.what_i_know = 0
@@ -23,6 +24,8 @@ def update(payload: Mapping[str, Any]) -> Mapping[str, Any]:
         print(f'click id: {payload["id"]}')
         player.x = payload["x"]
         player.y = payload["y"]
+        player.name = payload["name"]
+        print(f'player clicked is {player.name}')
         history.append(player)
         return {'status' : 'success', 'message' : 'Onclick action received'} # returns achknowledgement from back end BACK TO front end that the click was received  
     elif action == 'gu': #get update
