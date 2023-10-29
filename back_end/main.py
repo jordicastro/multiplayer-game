@@ -1,4 +1,5 @@
 # ** backend ** 
+import json
 from typing import Mapping, Any
 import os
 from http_daemon import delay_open_url, serve_pages
@@ -19,32 +20,35 @@ history: List[Player] = []
 
 def update(payload: Mapping[str, Any]) -> Mapping[str, Any]:
     action = payload["action"]
-    if action == 'click':
+    if action == 'move':
         player = find_player(payload["id"]) # assumes a find_player function is made that looks through players Dictionary to find player using parameter "id", creates a new player if needed,
-        print(f'click id: {payload["id"]}')
+        print(f'move id: {payload["id"]}')
         player.x = payload["x"]
         player.y = payload["y"]
         player.name = payload["name"]
         print(f'player clicked is {player.name}')
         history.append(player)
-        return {'status' : 'success', 'message' : 'Onclick action received'} # returns achknowledgement from back end BACK TO front end that the click was received  
-    elif action == 'gu': #get update
+        return {'status' : 'moved', 'message' : 'Onclick action received'} # returns achknowledgement from back end BACK TO front end that the click was received  
+    elif action == 'update': #get update
         player = find_player(payload["id"]) #finds player using id : <id>
         print(f'requesting id: {payload["id"]}')
         remaining_history = player.what_i_know # gets the position in the history list where the player last knew about updates
         player.what_i_know = len(history) # updates what player knows to the curr length of history list
 
         # iterates over the history from the last known position [remaining_history] TO the curr END [len(history)], creating a list of updates with player attributes
-        updates: List[Tuple[str, int, int]] = []
+        updates: List[Tuple[str, str, int, int]] = []
         for i in range(remaining_history, len(history)):
           player = history[i]
-          updates.append( (player.id, player.x, player.y))
-          print(f'sending id: {player.id}')
+          updates.append( (player.id, player.name, player.x, player.y))
+          print(f'sending name {player.name} with id: {player.id}')
         # print({'message' : 'updating backend history', 'updates' : updates})
 
         return {'updates': updates}
-    # print(f'update was called with {payload}')
-    ## if user is sending x and y, update 
+    elif action == 'gm':
+        return {
+            'status' : 'map',
+            'map' : map,
+        }
     return {
         'message': 'thank you',
     } # JSON FORMAT (change me). dynamic web page refresh (generating a web page foryouon the fly; no static premade pages)
@@ -58,6 +62,16 @@ def find_player(player_id: str) -> Player:
     new_player.id = player_id
     players[player_id] = new_player # adding the new player to the players DICT
     return new_player
+
+map: Mapping[str, Any] = {}
+
+def load_map() -> None:
+  global map
+  with open('map.json', 'rb') as f:
+      s = f.read()
+  map = json.loads(s)
+
+
 
 def main() -> None:
     # Get set up

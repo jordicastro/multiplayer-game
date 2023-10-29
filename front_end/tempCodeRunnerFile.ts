@@ -1,0 +1,1 @@
+g(`Map received from backend: ${JSON.stringify(ob)}`);
