@@ -99,18 +99,8 @@ class Model
 
 	onclick(x : number, y : number) {
 
-		/*
-		//  from frontend, not sure difference between Model.onclick & controller.onClick
-		let payload = {
-			mesage: 'howdi'
-		}
-		httpPost('ajax.html', payload, (response) => {
-			console.log(`${JSON.stringify(response)})`);
-		});
-
-		*/
 		for (const sprite of this.sprites) {
-			sprite.onclick(x, y, name_);
+			sprite.onclick(x + g_scroll_x, y + g_scroll_y, name_);
 		}
 	}
 
@@ -121,7 +111,7 @@ class Model
 
 	printMap(index : number, thingX: number, thingY: number)
 	{
-		this.sprites.push(new Sprite(g_id, `` ,thingX, thingY, `${thing_names[index]}.png`, Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
+		this.sprites.push(new Sprite((`${thing_names[index]}`), `` ,thingX, thingY, `${thing_names[index]}.png`, Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
 	}
 }
 
@@ -143,18 +133,18 @@ class View
 
 	update() 
 	{
-		const ctx = this.canvas.getContext("2d")!; // adding '!' tells TypeSciprt that you are sure the value won't be NULL 
-		ctx.clearRect(0, 0, 1000, 500);
-		for (const sprite of this.model.sprites) {
-			ctx.drawImage(sprite.image, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height);
-			ctx.font = "20px Verdana"; // print the name
-			ctx.fillText(sprite.name, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height - 10);
+		let ctx = this.canvas.getContext("2d")!; // adding '!' tells TypeSciprt that you are sure the value won't be NULL 
+		g_scroll_x += scroll_rate * (this.model.robot.x - g_scroll_x - center_x);
+		g_scroll_y += scroll_rate * (this.model.robot.y - g_scroll_y - center_y);
+		ctx.clearRect(0, 0, 1000, 500); // clear canvas
 
-			const center_x = 500;
-			const center_y = 270;
-			const scroll_rate = 0.03;
-			g_scroll_x += scroll_rate * (this.model.robot.x - scrollX - center_x);
-			g_scroll_y += scroll_rate * (this.model.robot.y - scrollY - center_y);
+		for (const sprite of this.model.sprites) 
+		{
+			const adjustedX = sprite.x - g_scroll_x;
+			const adjustedY = sprite.y - g_scroll_y;
+			ctx.drawImage(sprite.image, adjustedX - sprite.image.width / 2, adjustedY - sprite.image.height);
+			ctx.font = "20px Verdana"; // print the name
+			ctx.fillText(sprite.name, adjustedX - sprite.image.width / 2, adjustedY - sprite.image.height - 10);
 		}
 	}
 }
@@ -178,6 +168,7 @@ class Controller
 	{
 		this.model = model;
 		this.view = view;
+		console.log(`this.view: ${this.view}`);
 		let self = this;
 		view.canvas.addEventListener("click", function(event) { self.onClick(event); });
 		document.addEventListener('keydown', function(event) { self.keyDown(event); }, false);
@@ -194,11 +185,11 @@ class Controller
 			action : 'move',
 			id : g_id,
 			name : name_,
-			x : x,
-			y : y,
+			x : x + g_scroll_x,
+			y : y + g_scroll_y,
 		}; // this is talking to the BACKEND (main.py.Update method), passing the payload, including action : click, to update the new x and y of the object from the backend
 
-		httpPost('ajax.html', payload, this.onAcknowledgeClick); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
+		httpPost('ajax.html', payload, (ob) => this.onAcknowledgeClick(ob)); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
 		// BACKEND RESPONDS (sends back "status" : "success" [on 'click' request from frontend (in the form of a payload)] || "updates" : updates [on 'gu request from frontend (in the form of a payload)]) and frontend onAcknowledgeClick is CALLED 
 	}
 
@@ -240,12 +231,13 @@ class Controller
 		if (ob.status === 'moved') 
 		{
 			console.log("click action processed successfully!"); // from frontend to back end back to frontend
+			//this.view.scroll();
 		}
 		else if (ob.updates)
 		{
-			console.log('update called');
+			console.log(`update called: ${ob.updates}`);
 			//const updates = ob.updates;	
-			this.process_updates(ob.updates);
+			this.process_updates(ob);
 		}
 		else
 		{
@@ -256,14 +248,23 @@ class Controller
 
 	process_updates(ob: any)
 	{
-		let updates = ob;
+		let updates = ob.updates; // a list of 0 or more updates as described below
+		let chats = ob.chats; // a list of 0 or more strings to add to the chat window
+		this.updateChat(chats);
+		let gold = ob.gold; // an int value describing how much gold the client has
+		let banana = ob.banana; // an int value describing how many bananas the client has
+		this.updateGoldBananas(gold, banana);
 		console.log(updates);
 		for (const update of updates) // list syntax. change to json
 		{
-			const playerID = update[0];
-			const playerName = update[1];
-			const playerX = update[2];
-			const playerY = update[3];
+			const playerID = update.id;
+			if (playerID === g_id) // updates should never move your robot
+			{
+				continue;
+			}
+			const playerName = update.name;
+			const playerX = update.x;
+			const playerY = update.y;
 
 			this.updatePlayerPosition(playerID, playerName, playerX, playerY)
 		} // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
@@ -282,20 +283,35 @@ class Controller
 			{
 
 				player = this.model.sprites[i];
-				console.log(`found player = ${player}`);
+				console.log(`found player = ${JSON.stringify(player)}`);
 				break; // exit loop once player is found
 			}
 		}
 		if (player === null) // if player is not found, create a new sprite for them
 		{
-			console.log(`not found player player = ${player}`);
-			player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, (x,y) => {}); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+			console.log(`not found player player = ${player} and playerID = ${playerID}`);
+			player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.ignore_click); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
 			console.log(`player assigned = ${player}`);
 			this.model.sprites.push(player); // add new player to the sprites array
 		} // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
 
 		// updates player's position if it is found in the for loop
 		player.set_destination(playerX, playerY);
+	}
+
+	updateGoldBananas(gold : any, bananas : any)
+	{
+		// s.push('<div id="gold and bananas">');
+		// s.push('<br><big><big><b>');
+		// s.push('Gold: <span id="gold">0</span>,');
+		// s.push('Bananas: <span id="bananas">0</span>');
+		// s.push('</b></big></big><br>');
+		// s.push('</div>');
+	}
+
+	updateChat(ob : any)
+	{
+
 	}
 
 	onChat(message : string)
@@ -311,7 +327,7 @@ class Controller
 
 	onAcknowledgeChat(ob : any)
 	{
-		 
+		console.log(`message acknowledged. ${JSON.stringify(ob)}`);
 	}
 }
 
@@ -363,8 +379,11 @@ class Game
 
 ///////////////////////////////////////////////////////// start
 var name_ : string = ""; // global variable name_ refers to this.name_ (ie. the blue/YOUR robot)
-var g_scroll_x : number = 0;
-var g_scroll_y : number = 0;
+let g_scroll_x : number = 0;
+let g_scroll_y : number = 0;
+const center_x = 500;
+const center_y = 270;
+const scroll_rate = 0.03;
 
 // images of map. back end sends numbers (0 -> chair) and frontend parses through json to display the map on the screen.
 const thing_names = [
@@ -450,6 +469,19 @@ function back_story(): void {
 		s.push('<button id="startGame">Start Game</button>');
 	s.push('</div>');
 
+	s.push('<div id="gold and bananas">');
+		s.push('<br><big><big><b>');
+		s.push('Gold: <span id="gold">0</span>,');
+		s.push('Bananas: <span id="bananas">0</span>');
+		s.push('</b></big></big><br>');
+	s.push('</div>');
+	
+	s.push('<div id="gold and bananas">');
+		s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+		s.push('<input type="input" id="chatMessage"></input>');
+		s.push('<button onclick="postChatMessage()">Post</button>');
+	s.push('</div>');
+
 	const content = document.getElementById('content') as HTMLCanvasElement;
 	content.innerHTML = s.join('');
 
@@ -492,9 +524,9 @@ function back_story(): void {
 				const thingX = thing.x;
 				const thingY = thing.y;
 
-				console.log(`index: ${index}`);
-				console.log(`thingX: ${thingX}`);
-				console.log(`thingY: ${thingY}`);
+				// console.log(`index: ${index}`);
+				// console.log(`thingX: ${thingX}`);
+				// console.log(`thingY: ${thingY}`);
 
 				model.printMap(index, thingX, thingY); // access printMap with THIS model instance
 			}

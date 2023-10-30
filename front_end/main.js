@@ -75,26 +75,16 @@ var Model = /** @class */ (function () {
         }
     };
     Model.prototype.onclick = function (x, y) {
-        /*
-        //  from frontend, not sure difference between Model.onclick & controller.onClick
-        let payload = {
-            mesage: 'howdi'
-        }
-        httpPost('ajax.html', payload, (response) => {
-            console.log(`${JSON.stringify(response)})`);
-        });
-
-        */
         for (var _i = 0, _a = this.sprites; _i < _a.length; _i++) {
             var sprite = _a[_i];
-            sprite.onclick(x, y, name_);
+            sprite.onclick(x + g_scroll_x, y + g_scroll_y, name_);
         }
     };
     Model.prototype.move = function (dx, dy) {
         this.robot.move(dx, dy);
     };
     Model.prototype.printMap = function (index, thingX, thingY) {
-        this.sprites.push(new Sprite(g_id, "", thingX, thingY, "".concat(thing_names[index], ".png"), Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
+        this.sprites.push(new Sprite(("".concat(thing_names[index])), "", thingX, thingY, "".concat(thing_names[index], ".png"), Sprite.prototype.sit_still, Sprite.prototype.ignore_click));
     };
     return Model;
 }());
@@ -107,17 +97,16 @@ var View = /** @class */ (function () {
     }
     View.prototype.update = function () {
         var ctx = this.canvas.getContext("2d"); // adding '!' tells TypeSciprt that you are sure the value won't be NULL 
-        ctx.clearRect(0, 0, 1000, 500);
+        g_scroll_x += scroll_rate * (this.model.robot.x - g_scroll_x - center_x);
+        g_scroll_y += scroll_rate * (this.model.robot.y - g_scroll_y - center_y);
+        ctx.clearRect(0, 0, 1000, 500); // clear canvas
         for (var _i = 0, _a = this.model.sprites; _i < _a.length; _i++) {
             var sprite = _a[_i];
-            ctx.drawImage(sprite.image, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height);
+            var adjustedX = sprite.x - g_scroll_x;
+            var adjustedY = sprite.y - g_scroll_y;
+            ctx.drawImage(sprite.image, adjustedX - sprite.image.width / 2, adjustedY - sprite.image.height);
             ctx.font = "20px Verdana"; // print the name
-            ctx.fillText(sprite.name, sprite.x - sprite.image.width / 2, sprite.y - sprite.image.height - 10);
-            var center_x = 500;
-            var center_y = 270;
-            var scroll_rate = 0.03;
-            g_scroll_x += scroll_rate * (this.model.robot.x - scrollX - center_x);
-            g_scroll_y += scroll_rate * (this.model.robot.y - scrollY - center_y);
+            ctx.fillText(sprite.name, adjustedX - sprite.image.width / 2, adjustedY - sprite.image.height - 10);
         }
     };
     return View;
@@ -130,12 +119,14 @@ var Controller = /** @class */ (function () {
         this.key_down = false;
         this.model = model;
         this.view = view;
+        console.log("this.view: ".concat(this.view));
         var self = this;
         view.canvas.addEventListener("click", function (event) { self.onClick(event); });
         document.addEventListener('keydown', function (event) { self.keyDown(event); }, false);
         document.addEventListener('keyup', function (event) { self.keyUp(event); }, false);
     }
     Controller.prototype.onClick = function (event) {
+        var _this = this;
         var x = event.pageX - this.view.canvas.offsetLeft;
         var y = event.pageY - this.view.canvas.offsetTop;
         this.model.onclick(x, y);
@@ -143,10 +134,10 @@ var Controller = /** @class */ (function () {
             action: 'move',
             id: g_id,
             name: name_,
-            x: x,
-            y: y,
+            x: x + g_scroll_x,
+            y: y + g_scroll_y,
         }; // this is talking to the BACKEND (main.py.Update method), passing the payload, including action : click, to update the new x and y of the object from the backend
-        httpPost('ajax.html', payload, this.onAcknowledgeClick); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
+        httpPost('ajax.html', payload, function (ob) { return _this.onAcknowledgeClick(ob); }); // post request sent from main.ts (frontend, using AJAX) -> http_daemon (middle man) -> main.py (backend). 
         // BACKEND RESPONDS (sends back "status" : "success" [on 'click' request from frontend (in the form of a payload)] || "updates" : updates [on 'gu request from frontend (in the form of a payload)]) and frontend onAcknowledgeClick is CALLED 
     };
     Controller.prototype.keyDown = function (event) {
@@ -190,25 +181,35 @@ var Controller = /** @class */ (function () {
         // elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
         if (ob.status === 'moved') {
             console.log("click action processed successfully!"); // from frontend to back end back to frontend
+            //this.view.scroll();
         }
         else if (ob.updates) {
-            console.log('update called');
+            console.log("update called: ".concat(ob.updates));
             //const updates = ob.updates;	
-            this.process_updates(ob.updates);
+            this.process_updates(ob);
         }
         else {
             console.warn('Unexpected response from backend:', ob);
         }
     }; // logs response to console
     Controller.prototype.process_updates = function (ob) {
-        var updates = ob;
+        var updates = ob.updates; // a list of 0 or more updates as described below
+        var chats = ob.chats; // a list of 0 or more strings to add to the chat window
+        this.updateChat(chats);
+        var gold = ob.gold; // an int value describing how much gold the client has
+        var banana = ob.banana; // an int value describing how many bananas the client has
+        this.updateGoldBananas(gold, banana);
         console.log(updates);
         for (var _i = 0, updates_1 = updates; _i < updates_1.length; _i++) {
             var update = updates_1[_i];
-            var playerID = update[0];
-            var playerName = update[1];
-            var playerX = update[2];
-            var playerY = update[3];
+            var playerID = update.id;
+            if (playerID === g_id) // updates should never move your robot
+             {
+                continue;
+            }
+            var playerName = update.name;
+            var playerX = update.x;
+            var playerY = update.y;
             this.updatePlayerPosition(playerID, playerName, playerX, playerY);
         } // iterate through each player update and add the x,y, and id updates (there should be no id updates) 
     };
@@ -220,19 +221,23 @@ var Controller = /** @class */ (function () {
             if (this.model.sprites[i].id === playerID) // player is found
              {
                 player = this.model.sprites[i];
-                console.log("found player = ".concat(player));
+                console.log("found player = ".concat(JSON.stringify(player)));
                 break; // exit loop once player is found
             }
         }
         if (player === null) // if player is not found, create a new sprite for them
          {
-            console.log("not found player player = ".concat(player));
-            player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, function (x, y) { }); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
+            console.log("not found player player = ".concat(player, " and playerID = ").concat(playerID));
+            player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.ignore_click); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
             console.log("player assigned = ".concat(player));
             this.model.sprites.push(player); // add new player to the sprites array
         } // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
         // updates player's position if it is found in the for loop
         player.set_destination(playerX, playerY);
+    };
+    Controller.prototype.updateGoldBananas = function (gold, bananas) {
+    };
+    Controller.prototype.updateChat = function (ob) {
     };
     Controller.prototype.onChat = function (message) {
         var payload = {
@@ -243,6 +248,7 @@ var Controller = /** @class */ (function () {
         httpPost('ajax.html', payload, this.onAcknowledgeChat);
     };
     Controller.prototype.onAcknowledgeChat = function (ob) {
+        console.log("message acknowledged. ".concat(JSON.stringify(ob)));
     };
     return Controller;
 }());
@@ -279,6 +285,9 @@ var Game = /** @class */ (function () {
 var name_ = ""; // global variable name_ refers to this.name_ (ie. the blue/YOUR robot)
 var g_scroll_x = 0;
 var g_scroll_y = 0;
+var center_x = 500;
+var center_y = 270;
+var scroll_rate = 0.03;
 // images of map. back end sends numbers (0 -> chair) and frontend parses through json to display the map on the screen.
 var thing_names = [
     "chair",
@@ -350,6 +359,17 @@ function back_story() {
     s.push('<input type="text" id="userName" placeholder="Your Name">');
     s.push('<button id="startGame">Start Game</button>');
     s.push('</div>');
+    s.push('<div id="gold and bananas">');
+    s.push('<br><big><big><b>');
+    s.push('Gold: <span id="gold">0</span>,');
+    s.push('Bananas: <span id="bananas">0</span>');
+    s.push('</b></big></big><br>');
+    s.push('</div>');
+    s.push('<div id="gold and bananas">');
+    s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+    s.push('<input type="input" id="chatMessage"></input>');
+    s.push('<button onclick="postChatMessage()">Post</button>');
+    s.push('</div>');
     var content = document.getElementById('content');
     content.innerHTML = s.join('');
     var startButton = document.getElementById('startGame');
@@ -382,9 +402,9 @@ function back_story() {
                 var index = thing.kind;
                 var thingX = thing.x;
                 var thingY = thing.y;
-                console.log("index: ".concat(index));
-                console.log("thingX: ".concat(thingX));
-                console.log("thingY: ".concat(thingY));
+                // console.log(`index: ${index}`);
+                // console.log(`thingX: ${thingX}`);
+                // console.log(`thingY: ${thingY}`);
                 model.printMap(index, thingX, thingY); // access printMap with THIS model instance
             }
         }
