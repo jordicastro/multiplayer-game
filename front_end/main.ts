@@ -225,18 +225,19 @@ class Controller
 
 	onAcknowledgeClick(ob: any) // called when the server responds to the update request (ln 173 httpPost) 
 	{
-		console.log(`Response to move: ${JSON.stringify(ob)}`); // console log response from backend
+		//console.log(`Response to move: ${JSON.stringify(ob)}`); // console log response from backend
 		// add logic here to see if returned object from backend contains ('status' : 'success') -> TO NOTHING IF ITS A CLICK
 		// elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
 		if (ob.status === 'moved') 
 		{
-			console.log("click action processed successfully!"); // from frontend to back end back to frontend
+			//console.log("click action processed successfully!"); // from frontend to back end back to frontend
 			//this.view.scroll();
 		}
 		else if (ob.updates)
 		{
 			console.log(`update called: ${ob.updates}`);
-			//const updates = ob.updates;	
+			//const updates = ob.updates;
+			updateGoldBananas(ob);	
 			this.process_updates(ob);
 		}
 		else
@@ -253,8 +254,7 @@ class Controller
 		this.updateChat(chats);
 		let gold = ob.gold; // an int value describing how much gold the client has
 		let banana = ob.banana; // an int value describing how many bananas the client has
-		updateGoldBananas(banana, gold);
-		console.log(updates);
+		//console.log(updates);
 		for (const update of updates) // list syntax. change to json
 		{
 			const playerID = update.id;
@@ -278,20 +278,20 @@ class Controller
 
 		for (let i = 0; i < this.model.sprites.length; i++)
 		{
-			console.log(`looking for  ${playerID} with name ${playerName}, this.model.sprites[i].id = ${this.model.sprites[i].id}`);
+			//console.log(`looking for  ${playerID} with name ${playerName}, this.model.sprites[i].id = ${this.model.sprites[i].id}`);
 			if (this.model.sprites[i].id === playerID) // player is found
 			{
 
 				player = this.model.sprites[i];
-				console.log(`found player = ${JSON.stringify(player)}`);
+				//console.log(`found player = ${JSON.stringify(player)}`);
 				break; // exit loop once player is found
 			}
 		}
 		if (player === null) // if player is not found, create a new sprite for them
 		{
-			console.log(`not found player player = ${player} and playerID = ${playerID}`);
+			//console.log(`not found player player = ${player} and playerID = ${playerID}`);
 			player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.ignore_click); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
-			console.log(`player assigned = ${player}`);
+			//console.log(`player assigned = ${player}`);
 			this.model.sprites.push(player); // add new player to the sprites array
 		} // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
 
@@ -299,11 +299,21 @@ class Controller
 		player.set_destination(playerX, playerY);
 	}
 
-	
-
-	updateChat(ob : any)
+	updateChat(chats : any)
 	{
-
+		if (chats)
+		{
+			const chatWindow = document.getElementById("chatWindow") as  HTMLSelectElement;
+			console.log(chats);
+			
+			for (const text of chats)
+			{
+				const option = document.createElement("option");
+				option.text = text;
+				chatWindow.add(option);
+				option.scrollIntoView();
+			}
+		}
 	}
 
 	onChat(message : string)
@@ -323,18 +333,6 @@ class Controller
 	}
 }
 
-
-const updateGoldBananas = (banana : number, gold : number) => {
-	const goldElement = document.getElementById('gold');
-    const bananasElement = document.getElementById('banana');
-	let l : string [] = [];
-		l.push('<div id="gold and bananas">');
-		l.push('<br><big><big><b>');
-		l.push('Gold: <span id="gold">gold</span>,');
-		l.push('Bananas: <span id="bananas">banana</span>');
-		l.push('</b></big></big><br>');
-		l.push('</div>');
-}
 
 
 class Game 
@@ -400,8 +398,6 @@ const thing_names = [
 	"tree", // 8
 	"turtle",
 ];
-
-back_story();
 // let game = new Game();
 // let timer = setInterval(() => { game.onTimer(); }, 40);
 
@@ -457,103 +453,136 @@ const httpPost = (page_name: string, payload: any, callback: HttpPostCallback) =
 	request.send(JSON.stringify(payload));
 }
 
+const postChatMessage = () => {
+	const chatMessage = (document.getElementById("chatMessage") as HTMLInputElement)
+	const message = chatMessage.value;
+
+	console.log(message);
+	
+	httpPost('ajax.html', {
+		action : 'chat',
+		id : g_id,
+		text : message, 
+	}, chat_status);
+}
+
+const chat_status = (ob : any) => {
+	console.log(ob.status); 
+}
+
+function updateGoldBananas (ob : any) : void {
+	if (ob.gold !== undefined && ob.bananas !== undefined)
+	{
+		const goldElement = document.getElementById('gold');
+		const bananasElement = document.getElementById('bananas');
+
+		if (goldElement && bananasElement)
+		{
+			goldElement.innerText = ob.gold;
+			console.log(`ob.gold: ${ob.gold}`);
+			console.log(`ob.bananas: ${ob.bananas}`);
+			bananasElement.innerText = ob.bananas;
+		}
+	}
+	///goldelement.innerText = ob.gold;
+}
+
 //const model = new Model(); // create model instance here to use it in onReceiveMap. also pass THIS model in the game instance when starting up (back_story)
+const startGame = () => {
+	let l : string [] = [];
+	l.push(`<canvas id="myCanvas" width="1000" height="500" style="border:1px solid #ff0000;">`);
+	l.push(`</canvas>`);
+	l.push('<div id="gold and bananas">');
+		l.push('<br><big><big><b>');
+		l.push('Gold: <span id="gold">0</span>,');
+		l.push('Bananas: <span id="bananas">0</span>');
+		l.push('</b></big></big><br>');
+	l.push('</div>');
 
-
-function back_story(): void 
+	l.push('<div id="chat window">');
+		l.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+		l.push('<input type="input" id="chatMessage"></input>');
+		l.push('<button onclick="postChatMessage()">Post</button>');
+	l.push('</div>');
+	const content = document.getElementById('content');
+	if (content)
+	{
+		content.innerHTML = l.join('');
+	}
+	function onReceiveMap(ob: any) 
 {
+	//console.log(`Map received from backend: ${JSON.stringify(ob)}`);
+	let map_array = ob.map;
+	//console.log(`ob.map contains: ${JSON.stringify(map_array)}`);
+	let map_array_things = map_array.things; // ob.map.things
+	//console.log(`ob.map.things contains... ${JSON.stringify(map_array_things)}`)
+
+	for (const thing of map_array_things)
+	{
+		const index = thing.kind;
+		const thingX = thing.x;
+		const thingY = thing.y;
+
+		// console.log(`index: ${index}`);
+		// console.log(`thingX: ${thingX}`);
+		// console.log(`thingY: ${thingY}`);
+
+		model.printMap(index, thingX, thingY); // access printMap with THIS model instance
+	}
+					
+}
+	// start game
+	let model = new Model();
+	let game = new Game(model);
+	let timer = setInterval(() => { game.onTimer(); }, 40);
+
+	httpPost('ajax.html', {
+		action: 'get_map',
+	}, onReceiveMap);
+}
+
+const back_story = () => {
 	let s: string[] = [];
 	s.push(`<canvas id="myCanvas" width="1000" height="500" style="border:1px solid #ff0000;">`);
 	s.push(`</canvas>`);
 
-	s.push('<div id="nameInput">');
-		s.push('<label for="userName">Enter your name: </label>');
 		s.push('<input type="text" id="userName" placeholder="Your Name">');
 		s.push('<button id="startGame">Start Game</button>');
-	s.push('</div>');
 
-	// s.push('<div id="gold and bananas">');
-	// 	s.push('<br><big><big><b>');
-	// 	s.push('Gold: <span id="gold">0</span>,');
-	// 	s.push('Bananas: <span id="bananas">0</span>');
-	// 	s.push('</b></big></big><br>');
-	// s.push('</div>');
 	
-	// s.push('<div id="chat window">');
-	// 	s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
-	// 	s.push('<input type="input" id="chatMessage"></input>');
-	// 	s.push('<button onclick="postChatMessage()">Post</button>');
-	// s.push('</div>');
-
+	
 	const content = document.getElementById('content') as HTMLCanvasElement;
-	content.innerHTML = s.join('');
-
-
+	if (content)
+	{
+		content.innerHTML = s.join(''); 
+	}
 
 	const startButton = document.getElementById('startGame') as HTMLButtonElement;
-
 	startButton.addEventListener('click', () => {
 		const nameInput = document.getElementById('userName') as HTMLInputElement;
 		//const story = document.getElementById('backStory');
-		name_ = nameInput.value;
+		name_ = nameInput.value as string;
 		console.log(`Players name: ${name_}`);
 
 		// if (name_) {
 			// turn off button, storyline
 			startButton.style.display = 'none'; // removes the button
 			nameInput.style.display = 'none'; // removes the text box
-
+			startGame();
 			// send a request to the back end to get the map.
 			// requestMap();
-			httpPost('ajax.html', {
-				action: 'get_map',
-			}, onReceiveMap);
 			// add the get map from backend to parser
 
-		function onReceiveMap(ob: any) 
-		{
-			console.log(`Map received from backend: ${JSON.stringify(ob)}`);
-			let map_array = ob.map;
-			console.log(`ob.map contains: ${JSON.stringify(map_array)}`);
-			let map_array_things = map_array.things; // ob.map.things
-			console.log(`ob.map.things contains... ${JSON.stringify(map_array_things)}`)
-
-			for (const thing of map_array_things)
-			{
-				const index = thing.kind;
-				const thingX = thing.x;
-				const thingY = thing.y;
-
-				// console.log(`index: ${index}`);
-				// console.log(`thingX: ${thingX}`);
-				// console.log(`thingY: ${thingY}`);
-
-				model.printMap(index, thingX, thingY); // access printMap with THIS model instance
-			}
-							
-		}
-			updateGoldBananas(0, 0);
-			// start game
-			let model = new Model();
-			let game = new Game(model);
-			let timer = setInterval(() => { game.onTimer(); }, 40);
+		});
 
 
-		// }
-		// else
-		// {
-		// 	alert('please enter your name');
-		// }
-
-
-	});
-
-	let canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
-	let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
-	ctx.font = "25px Courier";
-	ctx.fillText("Banana Quest!\n", 10, 50);
-	ctx.font = "15px Courier";
-	ctx.fillText("here is the backstory", 10, 50);
+		let canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
+		let ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
+		ctx.font = "25px Courier";
+		ctx.fillText("Banana Quest!\n", 10, 50);
+		ctx.font = "15px Courier";
+		ctx.fillText("here is the backstory", 10,80);
 
 }
 
+back_story();

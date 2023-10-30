@@ -176,16 +176,17 @@ var Controller = /** @class */ (function () {
             this.model.move(dx, dy);
     };
     Controller.prototype.onAcknowledgeClick = function (ob) {
-        console.log("Response to move: ".concat(JSON.stringify(ob))); // console log response from backend
+        //console.log(`Response to move: ${JSON.stringify(ob)}`); // console log response from backend
         // add logic here to see if returned object from backend contains ('status' : 'success') -> TO NOTHING IF ITS A CLICK
         // elseif(returned object contains ("updates": updates)) -> {this.process_updates(updates)}
         if (ob.status === 'moved') {
-            console.log("click action processed successfully!"); // from frontend to back end back to frontend
+            //console.log("click action processed successfully!"); // from frontend to back end back to frontend
             //this.view.scroll();
         }
         else if (ob.updates) {
             console.log("update called: ".concat(ob.updates));
-            //const updates = ob.updates;	
+            //const updates = ob.updates;
+            updateGoldBananas(ob);
             this.process_updates(ob);
         }
         else {
@@ -198,8 +199,7 @@ var Controller = /** @class */ (function () {
         this.updateChat(chats);
         var gold = ob.gold; // an int value describing how much gold the client has
         var banana = ob.banana; // an int value describing how many bananas the client has
-        updateGoldBananas(banana, gold);
-        console.log(updates);
+        //console.log(updates);
         for (var _i = 0, updates_1 = updates; _i < updates_1.length; _i++) {
             var update = updates_1[_i];
             var playerID = update.id;
@@ -217,25 +217,36 @@ var Controller = /** @class */ (function () {
         //const player = this.model.sprites.find((sprite : Sprite) => sprite.id === playerID)! // ! to stop TS complaining about player possibly being 'undefined'
         var player = null; // initialize a player of type Sprite or null
         for (var i = 0; i < this.model.sprites.length; i++) {
-            console.log("looking for  ".concat(playerID, " with name ").concat(playerName, ", this.model.sprites[i].id = ").concat(this.model.sprites[i].id));
+            //console.log(`looking for  ${playerID} with name ${playerName}, this.model.sprites[i].id = ${this.model.sprites[i].id}`);
             if (this.model.sprites[i].id === playerID) // player is found
              {
                 player = this.model.sprites[i];
-                console.log("found player = ".concat(JSON.stringify(player)));
+                //console.log(`found player = ${JSON.stringify(player)}`);
                 break; // exit loop once player is found
             }
         }
         if (player === null) // if player is not found, create a new sprite for them
          {
-            console.log("not found player player = ".concat(player, " and playerID = ").concat(playerID));
+            //console.log(`not found player player = ${player} and playerID = ${playerID}`);
             player = new Sprite(playerID, playerName, playerX, playerY, "green_robot.png", Sprite.prototype.go_toward_destination, Sprite.prototype.ignore_click); // create a new instance of player with id, x, and y, green_robot, and default update() and onClick() methods
-            console.log("player assigned = ".concat(player));
+            //console.log(`player assigned = ${player}`);
             this.model.sprites.push(player); // add new player to the sprites array
         } // we wanna change the update method of the green robots, but not the onClick method (only for blue robot: otherwise every robot will move and follow the blue robot)
         // updates player's position if it is found in the for loop
         player.set_destination(playerX, playerY);
     };
-    Controller.prototype.updateChat = function (ob) {
+    Controller.prototype.updateChat = function (chats) {
+        if (chats) {
+            var chatWindow = document.getElementById("chatWindow");
+            console.log(chats);
+            for (var _i = 0, chats_1 = chats; _i < chats_1.length; _i++) {
+                var text = chats_1[_i];
+                var option = document.createElement("option");
+                option.text = text;
+                chatWindow.add(option);
+                option.scrollIntoView();
+            }
+        }
     };
     Controller.prototype.onChat = function (message) {
         var payload = {
@@ -250,17 +261,6 @@ var Controller = /** @class */ (function () {
     };
     return Controller;
 }());
-var updateGoldBananas = function (banana, gold) {
-    var goldElement = document.getElementById('gold');
-    var bananasElement = document.getElementById('banana');
-    var l = [];
-    l.push('<div id="gold and bananas">');
-    l.push('<br><big><big><b>');
-    l.push('Gold: <span id="gold">gold</span>,');
-    l.push('Bananas: <span id="bananas">banana</span>');
-    l.push('</b></big></big><br>');
-    l.push('</div>');
-};
 var Game = /** @class */ (function () {
     function Game(m) {
         this.last_updates_request_time = 0;
@@ -310,7 +310,6 @@ var thing_names = [
     "tree",
     "turtle",
 ];
-back_story();
 var g_origin = new URL(window.location.href).origin;
 // Payload is a marshaled (but not JSON-stringified) object
 // A JSON-parsed response object will be passed to the callback
@@ -358,29 +357,87 @@ var httpPost = function (page_name, payload, callback) {
     request.setRequestHeader('Content-Type', 'application/json');
     request.send(JSON.stringify(payload));
 };
+var postChatMessage = function () {
+    var chatMessage = document.getElementById("chatMessage");
+    var message = chatMessage.value;
+    console.log(message);
+    httpPost('ajax.html', {
+        action: 'chat',
+        id: g_id,
+        text: message,
+    }, chat_status);
+};
+var chat_status = function (ob) {
+    console.log(ob.status);
+};
+function updateGoldBananas(ob) {
+    if (ob.gold !== undefined && ob.bananas !== undefined) {
+        var goldElement = document.getElementById('gold');
+        var bananasElement = document.getElementById('bananas');
+        if (goldElement && bananasElement) {
+            goldElement.innerText = ob.gold;
+            console.log("ob.gold: ".concat(ob.gold));
+            console.log("ob.bananas: ".concat(ob.bananas));
+            bananasElement.innerText = ob.bananas;
+        }
+    }
+    ///goldelement.innerText = ob.gold;
+}
 //const model = new Model(); // create model instance here to use it in onReceiveMap. also pass THIS model in the game instance when starting up (back_story)
-function back_story() {
+var startGame = function () {
+    var l = [];
+    l.push("<canvas id=\"myCanvas\" width=\"1000\" height=\"500\" style=\"border:1px solid #ff0000;\">");
+    l.push("</canvas>");
+    l.push('<div id="gold and bananas">');
+    l.push('<br><big><big><b>');
+    l.push('Gold: <span id="gold">0</span>,');
+    l.push('Bananas: <span id="bananas">0</span>');
+    l.push('</b></big></big><br>');
+    l.push('</div>');
+    l.push('<div id="chat window">');
+    l.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+    l.push('<input type="input" id="chatMessage"></input>');
+    l.push('<button onclick="postChatMessage()">Post</button>');
+    l.push('</div>');
+    var content = document.getElementById('content');
+    if (content) {
+        content.innerHTML = l.join('');
+    }
+    function onReceiveMap(ob) {
+        //console.log(`Map received from backend: ${JSON.stringify(ob)}`);
+        var map_array = ob.map;
+        //console.log(`ob.map contains: ${JSON.stringify(map_array)}`);
+        var map_array_things = map_array.things; // ob.map.things
+        //console.log(`ob.map.things contains... ${JSON.stringify(map_array_things)}`)
+        for (var _i = 0, map_array_things_1 = map_array_things; _i < map_array_things_1.length; _i++) {
+            var thing = map_array_things_1[_i];
+            var index = thing.kind;
+            var thingX = thing.x;
+            var thingY = thing.y;
+            // console.log(`index: ${index}`);
+            // console.log(`thingX: ${thingX}`);
+            // console.log(`thingY: ${thingY}`);
+            model.printMap(index, thingX, thingY); // access printMap with THIS model instance
+        }
+    }
+    // start game
+    var model = new Model();
+    var game = new Game(model);
+    var timer = setInterval(function () { game.onTimer(); }, 40);
+    httpPost('ajax.html', {
+        action: 'get_map',
+    }, onReceiveMap);
+};
+var back_story = function () {
     var s = [];
     s.push("<canvas id=\"myCanvas\" width=\"1000\" height=\"500\" style=\"border:1px solid #ff0000;\">");
     s.push("</canvas>");
-    s.push('<div id="nameInput">');
-    s.push('<label for="userName">Enter your name: </label>');
     s.push('<input type="text" id="userName" placeholder="Your Name">');
     s.push('<button id="startGame">Start Game</button>');
-    s.push('</div>');
-    // s.push('<div id="gold and bananas">');
-    // 	s.push('<br><big><big><b>');
-    // 	s.push('Gold: <span id="gold">0</span>,');
-    // 	s.push('Bananas: <span id="bananas">0</span>');
-    // 	s.push('</b></big></big><br>');
-    // s.push('</div>');
-    // s.push('<div id="chat window">');
-    // 	s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
-    // 	s.push('<input type="input" id="chatMessage"></input>');
-    // 	s.push('<button onclick="postChatMessage()">Post</button>');
-    // s.push('</div>');
     var content = document.getElementById('content');
-    content.innerHTML = s.join('');
+    if (content) {
+        content.innerHTML = s.join('');
+    }
     var startButton = document.getElementById('startGame');
     startButton.addEventListener('click', function () {
         var nameInput = document.getElementById('userName');
@@ -391,44 +448,16 @@ function back_story() {
         // turn off button, storyline
         startButton.style.display = 'none'; // removes the button
         nameInput.style.display = 'none'; // removes the text box
+        startGame();
         // send a request to the back end to get the map.
         // requestMap();
-        httpPost('ajax.html', {
-            action: 'get_map',
-        }, onReceiveMap);
         // add the get map from backend to parser
-        function onReceiveMap(ob) {
-            console.log("Map received from backend: ".concat(JSON.stringify(ob)));
-            var map_array = ob.map;
-            console.log("ob.map contains: ".concat(JSON.stringify(map_array)));
-            var map_array_things = map_array.things; // ob.map.things
-            console.log("ob.map.things contains... ".concat(JSON.stringify(map_array_things)));
-            for (var _i = 0, map_array_things_1 = map_array_things; _i < map_array_things_1.length; _i++) {
-                var thing = map_array_things_1[_i];
-                var index = thing.kind;
-                var thingX = thing.x;
-                var thingY = thing.y;
-                // console.log(`index: ${index}`);
-                // console.log(`thingX: ${thingX}`);
-                // console.log(`thingY: ${thingY}`);
-                model.printMap(index, thingX, thingY); // access printMap with THIS model instance
-            }
-        }
-        updateGoldBananas(0, 0);
-        // start game
-        var model = new Model();
-        var game = new Game(model);
-        var timer = setInterval(function () { game.onTimer(); }, 40);
-        // }
-        // else
-        // {
-        // 	alert('please enter your name');
-        // }
     });
     var canvas = document.getElementById('myCanvas');
     var ctx = canvas.getContext("2d");
     ctx.font = "25px Courier";
     ctx.fillText("Banana Quest!\n", 10, 50);
     ctx.font = "15px Courier";
-    ctx.fillText("here is the backstory", 10, 50);
-}
+    ctx.fillText("here is the backstory", 10, 80);
+};
+back_story();
