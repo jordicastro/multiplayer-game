@@ -253,7 +253,7 @@ class Controller
 		this.updateChat(chats);
 		let gold = ob.gold; // an int value describing how much gold the client has
 		let banana = ob.banana; // an int value describing how many bananas the client has
-		this.updateGoldBananas(gold, banana);
+		updateGoldBananas(banana, gold);
 		console.log(updates);
 		for (const update of updates) // list syntax. change to json
 		{
@@ -299,15 +299,7 @@ class Controller
 		player.set_destination(playerX, playerY);
 	}
 
-	updateGoldBananas(gold : any, bananas : any)
-	{
-		// s.push('<div id="gold and bananas">');
-		// s.push('<br><big><big><b>');
-		// s.push('Gold: <span id="gold">0</span>,');
-		// s.push('Bananas: <span id="bananas">0</span>');
-		// s.push('</b></big></big><br>');
-		// s.push('</div>');
-	}
+	
 
 	updateChat(ob : any)
 	{
@@ -332,7 +324,17 @@ class Controller
 }
 
 
-
+const updateGoldBananas = (banana : number, gold : number) => {
+	const goldElement = document.getElementById('gold');
+    const bananasElement = document.getElementById('banana');
+	let l : string [] = [];
+		l.push('<div id="gold and bananas">');
+		l.push('<br><big><big><b>');
+		l.push('Gold: <span id="gold">gold</span>,');
+		l.push('Bananas: <span id="bananas">banana</span>');
+		l.push('</b></big></big><br>');
+		l.push('</div>');
+}
 
 
 class Game 
@@ -458,7 +460,8 @@ const httpPost = (page_name: string, payload: any, callback: HttpPostCallback) =
 //const model = new Model(); // create model instance here to use it in onReceiveMap. also pass THIS model in the game instance when starting up (back_story)
 
 
-function back_story(): void {
+function back_story(): void 
+{
 	let s: string[] = [];
 	s.push(`<canvas id="myCanvas" width="1000" height="500" style="border:1px solid #ff0000;">`);
 	s.push(`</canvas>`);
@@ -469,18 +472,18 @@ function back_story(): void {
 		s.push('<button id="startGame">Start Game</button>');
 	s.push('</div>');
 
-	s.push('<div id="gold and bananas">');
-		s.push('<br><big><big><b>');
-		s.push('Gold: <span id="gold">0</span>,');
-		s.push('Bananas: <span id="bananas">0</span>');
-		s.push('</b></big></big><br>');
-	s.push('</div>');
+	// s.push('<div id="gold and bananas">');
+	// 	s.push('<br><big><big><b>');
+	// 	s.push('Gold: <span id="gold">0</span>,');
+	// 	s.push('Bananas: <span id="bananas">0</span>');
+	// 	s.push('</b></big></big><br>');
+	// s.push('</div>');
 	
-	s.push('<div id="gold and bananas">');
-		s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
-		s.push('<input type="input" id="chatMessage"></input>');
-		s.push('<button onclick="postChatMessage()">Post</button>');
-	s.push('</div>');
+	// s.push('<div id="chat window">');
+	// 	s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+	// 	s.push('<input type="input" id="chatMessage"></input>');
+	// 	s.push('<button onclick="postChatMessage()">Post</button>');
+	// s.push('</div>');
 
 	const content = document.getElementById('content') as HTMLCanvasElement;
 	content.innerHTML = s.join('');
@@ -488,9 +491,6 @@ function back_story(): void {
 
 
 	const startButton = document.getElementById('startGame') as HTMLButtonElement;
-    // const nameInput = document.getElementById('userName') as HTMLInputElement;
-    // const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
-    // const backstory = document.getElementById('backstory') as HTMLDivElement;
 
 	startButton.addEventListener('click', () => {
 		const nameInput = document.getElementById('userName') as HTMLInputElement;
@@ -532,7 +532,7 @@ function back_story(): void {
 			}
 							
 		}
-
+			updateGoldBananas(0, 0);
 			// start game
 			let model = new Model();
 			let game = new Game(model);
@@ -556,3 +556,4 @@ function back_story(): void {
 	ctx.fillText("here is the backstory", 10, 50);
 
 }
+

@@ -198,7 +198,7 @@ var Controller = /** @class */ (function () {
         this.updateChat(chats);
         var gold = ob.gold; // an int value describing how much gold the client has
         var banana = ob.banana; // an int value describing how many bananas the client has
-        this.updateGoldBananas(gold, banana);
+        updateGoldBananas(banana, gold);
         console.log(updates);
         for (var _i = 0, updates_1 = updates; _i < updates_1.length; _i++) {
             var update = updates_1[_i];
@@ -235,8 +235,6 @@ var Controller = /** @class */ (function () {
         // updates player's position if it is found in the for loop
         player.set_destination(playerX, playerY);
     };
-    Controller.prototype.updateGoldBananas = function (gold, bananas) {
-    };
     Controller.prototype.updateChat = function (ob) {
     };
     Controller.prototype.onChat = function (message) {
@@ -252,6 +250,17 @@ var Controller = /** @class */ (function () {
     };
     return Controller;
 }());
+var updateGoldBananas = function (banana, gold) {
+    var goldElement = document.getElementById('gold');
+    var bananasElement = document.getElementById('banana');
+    var l = [];
+    l.push('<div id="gold and bananas">');
+    l.push('<br><big><big><b>');
+    l.push('Gold: <span id="gold">gold</span>,');
+    l.push('Bananas: <span id="bananas">banana</span>');
+    l.push('</b></big></big><br>');
+    l.push('</div>');
+};
 var Game = /** @class */ (function () {
     function Game(m) {
         this.last_updates_request_time = 0;
@@ -359,23 +368,20 @@ function back_story() {
     s.push('<input type="text" id="userName" placeholder="Your Name">');
     s.push('<button id="startGame">Start Game</button>');
     s.push('</div>');
-    s.push('<div id="gold and bananas">');
-    s.push('<br><big><big><b>');
-    s.push('Gold: <span id="gold">0</span>,');
-    s.push('Bananas: <span id="bananas">0</span>');
-    s.push('</b></big></big><br>');
-    s.push('</div>');
-    s.push('<div id="gold and bananas">');
-    s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
-    s.push('<input type="input" id="chatMessage"></input>');
-    s.push('<button onclick="postChatMessage()">Post</button>');
-    s.push('</div>');
+    // s.push('<div id="gold and bananas">');
+    // 	s.push('<br><big><big><b>');
+    // 	s.push('Gold: <span id="gold">0</span>,');
+    // 	s.push('Bananas: <span id="bananas">0</span>');
+    // 	s.push('</b></big></big><br>');
+    // s.push('</div>');
+    // s.push('<div id="chat window">');
+    // 	s.push('<br> <select id="chatWindow" size="8" style="width:1000px"></select> <br>');
+    // 	s.push('<input type="input" id="chatMessage"></input>');
+    // 	s.push('<button onclick="postChatMessage()">Post</button>');
+    // s.push('</div>');
     var content = document.getElementById('content');
     content.innerHTML = s.join('');
     var startButton = document.getElementById('startGame');
-    // const nameInput = document.getElementById('userName') as HTMLInputElement;
-    // const canvas = document.getElementById('myCanvas') as HTMLCanvasElement;
-    // const backstory = document.getElementById('backstory') as HTMLDivElement;
     startButton.addEventListener('click', function () {
         var nameInput = document.getElementById('userName');
         //const story = document.getElementById('backStory');
@@ -408,6 +414,7 @@ function back_story() {
                 model.printMap(index, thingX, thingY); // access printMap with THIS model instance
             }
         }
+        updateGoldBananas(0, 0);
         // start game
         var model = new Model();
         var game = new Game(model);
